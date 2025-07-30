@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live People Counter</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+    <header>
+        <span class="split-text">
+          <span class="split-char">📊</span>
+          <span class="split-char"> </span>
+          <span class="split-char">L</span>
+          <span class="split-char">i</span>
+          <span class="split-char">v</span>
+          <span class="split-char">e</span>
+          <span class="split-char"> </span>
+          <span class="split-char">C</span>
+          <span class="split-char">r</span>
+          <span class="split-char">o</span>
+          <span class="split-char">w</span>
+          <span class="split-char">d</span>
+          <span class="split-char"> </span>
+          <span class="split-char">C</span>
+          <span class="split-char">o</span>
+          <span class="split-char">u</span>
+          <span class="split-char">n</span>
+          <span class="split-char">t</span>
+          <span class="split-char">e</span>
+          <span class="split-char">r</span>
+          <span class="split-char"> </span>
+          <span class="split-char">D</span>
+          <span class="split-char">a</span>
+          <span class="split-char">s</span>
+          <span class="split-char">h</span>
+          <span class="split-char">b</span>
+          <span class="split-char">o</span>
+          <span class="split-char">a</span>
+          <span class="split-char">r</span>
+          <span class="split-char">d</span>
+        </span>
+      </header>
+
+  <div class="container">
+    <h2 class="section-title">🔴 Live Status</h2>
+    <div class="box-container">
+      <div class="box">
+        <div class="label">🚶‍♂️ Total Entries Today</div>
+        <div id="entryCount" class="value">...</div>
+      </div>
+      <div class="box">
+        <div class="label">🚪 Total Exits Today</div>
+        <div id="exitCount" class="value">...</div>
+      </div>
+      <div class="box">
+        <div class="label">👥 Currently Inside</div>
+        <div id="netCount" class="value">...</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">🕒 Last Hour's Summary</h2>
+    <div class="box-container">
+       <div class="box">
+        <div class="label">📈 Entries</div>
+        <div id="entriesLastHour" class="value">...</div>
+      </div>
+      <div class="box">
+        <div class="label">📉 Exits</div>
+        <div id="exitsLastHour" class="value">...</div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="hourlyChart"></canvas>
+    </div>
+
+    <div class="table-container">
+        <h2 class="section-title" style="margin-top: 0;">Today's Hourly Breakdown</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Hour</th>
+                    <th>Entries</th>
+                    <th>Exits</th>
+                    <th>Net Count (End of Hour)</th>
+                </tr>
+            </thead>
+            <tbody id="hourly-data-body">
+                <!-- Data will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+  </div>
+
+  <footer>
+    Made by Nimal Charan
+  </footer>
+
+  <script>
+    // --- Firebase Configuration ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCdhrst6bCwTSWnsioCSmvmRivQekX2sws",
+      authDomain: "crowdcount-47936.firebaseapp.com",
+      databaseURL: "https://crowdcount-47936-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "crowdcount-47936",
+      storageBucket: "crowdcount-47936.appspot.com",
+      messagingSenderId: "702439137690",
+      appId: "1:702439137690:web:b04c94705e479fc70dda23"
+    };
+
+    // --- Initialize Firebase ---
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // --- DOM Element References ---
+    const entryCountEl = document.getElementById('entryCount');
+    const exitCountEl = document.getElementById('exitCount');
+    const netCountEl = document.getElementById('netCount');
+    const entriesLastHourEl = document.getElementById('entriesLastHour');
+    const exitsLastHourEl = document.getElementById('exitsLastHour');
+    const hourlyTableBody = document.getElementById('hourly-data-body');
+
+    // --- Live Data Listeners ---
+    const liveDataRef = db.ref('peoplecrowd');
+    liveDataRef.on('value', snapshot => {
+        const data = snapshot.val() || {};
+        entryCountEl.innerText = data.peopleIn ?? 0;
+        exitCountEl.innerText = data.peopleOut ?? 0;
+        netCountEl.innerText = data.crowd ?? 0;
+        entriesLastHourEl.innerText = data.peopleInLastHour ?? 0;
+        exitsLastHourEl.innerText = data.peopleOutLastHour ?? 0;
+    }, error => console.error("Error fetching live data:", error));
+
+    // --- Chart.js Setup ---
+    const ctx = document.getElementById('hourlyChart').getContext('2d');
+    
+    // Update chart colors for dark theme
+    Chart.defaults.color = '#ffffff';
+    Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+    
+    const hourlyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [], // e.g., ['00:00', '01:00', ...]
+            datasets: [{
+                label: 'Net People Inside',
+                data: [], // e.g., [5, 8, 7, ...]
+                backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                borderColor: '#6366f1',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { 
+                    display: true, 
+                    text: 'Net Crowd Count Throughout The Day', 
+                    font: { size: 18 },
+                    color: '#ffffff'
+                },
+                legend: { display: false }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    title: { display: true, text: 'People Count', color: '#a1a1aa' },
+                    ticks: { color: '#a1a1aa' },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                },
+                x: { 
+                    title: { display: true, text: 'Hour of the Day', color: '#a1a1aa' },
+                    ticks: { color: '#a1a1aa' },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                }
+            }
+        }
+    });
+
+    // --- Hourly & Daily Data Listener ---
+    function getFormattedDate() {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    const todayPath = `hourlyData/${getFormattedDate()}`;
+    const hourlyDataRef = db.ref(todayPath);
+
+    hourlyDataRef.on('value', snapshot => {
+        const data = snapshot.val() || {};
+        
+        // Clear previous data
+        hourlyTableBody.innerHTML = '';
+        const chartLabels = [];
+        const chartData = [];
+
+        // Populate table and prepare chart data for hours 0 through 23
+        for (let i = 0; i < 24; i++) {
+            const hour = String(i).padStart(2, '0');
+            const hourData = data[hour] || { in: '-', out: '-', net: '-' };
+            
+            const row = `
+                <tr>
+                    <td>${hour}:00 - ${hour}:59</td>
+                    <td>${hourData.in}</td>
+                    <td>${hourData.out}</td>
+                    <td>${hourData.net}</td>
+                </tr>
+            `;
+            hourlyTableBody.innerHTML += row;
+
+            // Add data to chart only if it exists
+            if (data[hour]) {
+                chartLabels.push(`${hour}:00`);
+                chartData.push(hourData.net);
+            }
+        }
+
+        // Update the chart
+        hourlyChart.data.labels = chartLabels;
+        hourlyChart.data.datasets[0].data = chartData;
+        hourlyChart.update();
+
+    }, error => console.error("Error fetching hourly data:", error));
+
+  </script>
+</body>
+</html>
