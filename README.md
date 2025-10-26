@@ -29,3 +29,6 @@ Setup Instructions
 	•	Create a index.html file and add your Firebase config in it
 	•	The dashboard fetches live count data and displays it dynamically
   
+
+
+![alt text](unnamed.png)
